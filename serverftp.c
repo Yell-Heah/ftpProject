@@ -1,4 +1,4 @@
-/* 
+/*
  * server FTP program
  *
  * NOTE: Starting homework #2, add more comments here describing the overall function
@@ -59,12 +59,12 @@ char replyMsg[1024];       /* buffer to send reply message to client */
  *		   Can use it if needed.
  *
  * Return status
- *	0			- Successful execution until QUIT command from client 
+ *	0			- Successful execution until QUIT command from client
  *	ER_ACCEPT_FAILED	- Accepting client connection request failed
  *	N			- Failed stauts, value of N depends on the command processed
  */
 
-int main(	
+int main(
 	int argc,
 	char *argv[]
 	)
@@ -115,8 +115,8 @@ int main(
 
 
 	/* Receive and process ftp commands from client until quit command.
- 	 * On receiving quit command, send reply to client and 
-         * then close the control connection socket "ccSocket". 
+ 	 * On receiving quit command, send reply to client and
+         * then close the control connection socket "ccSocket".
 	 */
 	do
 	{
@@ -139,7 +139,7 @@ int main(
 	    strcpy(argument, "");  /* Modify in Homework 2.  Use strtok function */
 
 	    /*
- 	     * ftp server sends only one reply message to the client for 
+ 	     * ftp server sends only one reply message to the client for
 	     * each command received in this implementation.
 	     */
 	    strcpy(replyMsg,"200 cmd okay\n");  /* Should have appropriate reply msg starting HW2 */
@@ -202,7 +202,7 @@ int svcInitServer (
 	svcAddr.sin_port=htons(SERVER_FTP_PORT);    /* server listen port # */
 
 	/* bind (associate) the listen socket number with server IP and port#.
-	 * bind is a socket interface function 
+	 * bind is a socket interface function
 	 */
 	if(bind(sock,(struct sockaddr *)&svcAddr,sizeof(svcAddr))<0)
 	{
@@ -211,19 +211,19 @@ int svcInitServer (
 		return(ER_BIND_FAILED);	/* bind failed */
 	}
 
-	/* 
+	/*
 	 * Set listen queue length to 1 outstanding connection request.
 	 * This allows 1 outstanding connect request from client to wait
 	 * while processing current connection request, which takes time.
 	 * It prevents connection request to fail and client to think server is down
 	 * when in fact server is running and busy processing connection request.
 	 */
-	qlen=1; 
+	qlen=1;
 
 
-	/* 
+	/*
 	 * Listen for connection request to come from client ftp.
-	 * This is a non-blocking socket interface function call, 
+	 * This is a non-blocking socket interface function call,
 	 * meaning, server ftp execution does not block by the 'listen' funcgtion call.
 	 * Call returns right away so that server can do whatever it wants.
 	 * The TCP transport layer will continuously listen for request and
@@ -324,6 +324,3 @@ int receiveMessage (
 
 	return (OK);
 }
-
-
-
