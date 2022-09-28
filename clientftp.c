@@ -1,4 +1,4 @@
-/* 
+/*
  * Client FTP program
  *
  * NOTE: Starting homework #2, add more comments here describing the overall function
@@ -57,11 +57,11 @@ char replyMsg[1024];    /* buffer to receive reply message from server */
  *		   Can use it if needed.
  *
  * Return status
- *	OK	- Successful execution until QUIT command from client 
+ *	OK	- Successful execution until QUIT command from client
  *	N	- Failed status, value of N depends on the function called or cmd processed
  */
 
-int main(	
+int main(
 	int argc,
 	char *argv[]
 	)
@@ -91,7 +91,7 @@ int main(
 	}
 
 
-	/* 
+	/*
 	 * Read an ftp command with argument, if any, in one line from user into userCmd.
 	 * Copy ftp command part into ftpCmd and the argument into arg array.
  	 * Send the line read (both ftp cmd part and the argument part) in userCmd to server.
@@ -102,9 +102,10 @@ int main(
 	do
 	{
 		printf("my ftp> ");
-		strcpy(userCmd, "quit");  /* This statement must be replaced in homework #2 */
+				gets(userCmd);  /* TODONE: Jacob */
+
 				/* to read the command from the user. Use gets or readln function */
-		
+
 	        /* Separate command and argument from userCmd */
 	        strcpy(cmd, userCmd);  /* Modify in Homework 2.  Use strtok function */
 	        strcpy(argument, "");  /* Modify in Homework 2.  Use strtok function */
@@ -204,7 +205,7 @@ int clntConnect (
 
 	/* Set ftp server ftp address in serverAddress */
 	serverAddress.sin_family = AF_INET;
-	memcpy((char *) &serverAddress.sin_addr, serverIPstructure->h_addr, 
+	memcpy((char *) &serverAddress.sin_addr, serverIPstructure->h_addr,
 			serverIPstructure->h_length);
 	serverAddress.sin_port = htons(SERVER_FTP_PORT);
 
@@ -314,7 +315,7 @@ int receiveMessage (
 /*
  * clntExtractReplyCode
  *
- * Function to extract the three digit reply code 
+ * Function to extract the three digit reply code
  * from the server reply message received.
  * It is assumed that the reply message string is of the following format
  *      ddd  text
@@ -338,4 +339,3 @@ int clntExtractReplyCode (
 
    return (OK);
 }  // end of clntExtractReplyCode()
-
