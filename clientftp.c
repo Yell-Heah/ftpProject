@@ -1,19 +1,17 @@
 /*
- * Client FTP program
- *
- * NOTE: Starting homework #2, add more comments here describing the overall function
- * performed by server ftp program
- * This includes, the list of ftp commands processed by server ftp.
- *
- */
+Client FTP program
+
+NOTE: Starting homework #2, add more comments here describing the overall function performed by client ftp program. This includes the list of ftp commands processed by client ftp.
+*/
 
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <string.h>
+#include <stdio.h> /* TODONEJacob: avoids implicit dec. error for printf */
 
-#define SERVER_FTP_PORT 2598
+#define SERVER_FTP_PORT 6798
 
 /* Error and OK codes */
 #define OK 0
@@ -26,14 +24,11 @@
 
 
 /* Function prototypes */
-
 int clntConnect(char	*serverName, int *s);
 int sendMessage (int s, char *msg, int  msgSize);
 int receiveMessage(int s, char *buffer, int  bufferSize, int *msgSize);
 
-
 /* List of all global variables */
-
 char userCmd[1024];	/* user typed ftp command line read from keyboard */
 char cmd[1024];		/* ftp command extracted from userCmd */
 char argument[1024];	/* argument extracted from userCmd */
@@ -41,30 +36,25 @@ char replyMsg[1024];    /* buffer to receive reply message from server */
 
 
 /*
- * main
- *
- * Function connects to the ftp server using clntConnect function.
- * Reads one ftp command in one line from the keyboard into userCmd array.
- * Sends the user command to the server.
- * Receive reply message from the server.
- * On receiving reply to QUIT ftp command from the server,
- * close the control connection socket and exit from main
- *
- * Parameters
- * argc		- Count of number of arguments passed to main (input)
- * argv  	- Array of pointer to input parameters to main (input)
- *		   It is not required to pass any parameter to main
- *		   Can use it if needed.
- *
- * Return status
- *	OK	- Successful execution until QUIT command from client
- *	N	- Failed status, value of N depends on the function called or cmd processed
- */
+main
 
-int main(
-	int argc,
-	char *argv[]
-	)
+Function connects to the ftp server using clntConnect function.
+Reads one ftp command in one line from the keyboard into userCmd array.
+Sends the user command to the server.
+Receive reply message from the server.
+On receiving reply to QUIT ftp command from the server,
+close the control connection socket and exit from main
+
+Parameters
+argc		- Count of number of arguments passed to main (input).
+argv  	- Array of pointer to input parameters to main (input).
+It is not required to pass any parameter to main. Can use it if needed.
+
+Return status
+OK	- Successful execution until QUIT command from client
+N	- Failed status, value of N depends on the function called or cmd processed
+ */
+int main(	int argc,	char *argv[] )
 {
 	/* List of local varibale */
 
@@ -73,10 +63,9 @@ int main(
 	int status = OK;
 
 	/*
-	 * NOTE: without \n at the end of format string in printf,
-         * UNIX will buffer (not flush)
-	 * output to display and you will not see it on monitor.
- 	 */
+	NOTE: without \n at the end of format string in printf,	UNIX will buffer (not
+	flush) output to display and you will not see it on monitor.
+	*/
 	printf("Started execution of client ftp\n");
 
 
@@ -102,37 +91,37 @@ int main(
 	do
 	{
 		printf("my ftp> ");
-				gets(userCmd);  /* TODONE: Jacob */
+		/* to read the command from the user. Use gets or readln function */
+		// gets(userCmd);  /* TODONE: Jacob */
+		fgets(userCmd, 1024, stdin);  /* TODONE: Jacob */
+		userCmd[strlen(userCmd)-1] = '\0';
 
-				/* to read the command from the user. Use gets or readln function */
-
-	        /* Separate command and argument from userCmd */
-	        strcpy(cmd, userCmd);  /* Modify in Homework 2.  Use strtok function */
-	        strcpy(argument, "");  /* Modify in Homework 2.  Use strtok function */
+    /*
+		Separate command and argument from userCmd.
+		Modify in Homework 2. Use strtok function
+		*/
+    strcpy(cmd, userCmd);
+    strcpy(argument, "");
 
 		/* send the userCmd to the server */
 		status = sendMessage(ccSocket, userCmd, strlen(userCmd)+1);
 		if(status != OK)
 		{
-		    break;
+	    break;
 		}
 
 		/* Receive reply message from the the server */
 		status = receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &msgSize);
 		if(status != OK)
 		{
-		    break;
+	    break;
 		}
 	}
-	while (strcmp(cmd, "quit") != 0);
-
+	while (strncmp(cmd, "quit", 4) != 0);
 	printf("Closing control connection \n");
 	close(ccSocket);  /* close control connection socket */
-
 	printf("Exiting client main \n");
-
 	return (status);
-
 }  /* end main() */
 
 
