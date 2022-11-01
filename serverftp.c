@@ -182,11 +182,14 @@ int main( int argc, char *argv[] )
 			printf("switch_c: %i\n", switch_c);
 			switch(switch_c)
 			{
+				FILE *file;
+				char buffer[1024];       					 /* buffer to read into replyMsg */
 				case 0:
 					strcpy(replyMsg,"Unreconized command.");
 					break;
 				case 1:	//mkdir
 					strcpy(replyMsg,"mkdir command recieved.");
+					system(cmd);
 					break;
 				case 2: //rmdir
 					strcpy(replyMsg,"rmdir command recieved.");
@@ -198,10 +201,20 @@ int main( int argc, char *argv[] )
 					strcpy(replyMsg,"dele command recieved.");
 					break;
 				case 5: //pwd
-					strcpy(replyMsg,"pwd command recieved.");
+					system("pwd > commandOutput");
+					file = fopen("commandOutput","r");
+					strcpy(replyMsg,"");							 /* clear replyMsg */
+					while (fgets(buffer, 1024, file))  /* read file into replyMsg */
+						strcat(replyMsg, buffer);
+					fclose(file);
 					break;
 				case 6: //ls
-					strcpy(replyMsg,"ls command recieved.");
+					system("ls > commandOutput");
+					file = fopen("commandOutput","r");
+					strcpy(replyMsg,"");							 /* clear replyMsg */
+					while (fgets(buffer, 1024, file))  /* read file into replyMsg */
+						strcat(replyMsg, buffer);
+					fclose(file);
 					break;
 				case 7: //stat(or status)
 					strcpy(replyMsg,"stat command recieved.");
