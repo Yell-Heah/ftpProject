@@ -72,6 +72,7 @@ int main( int argc, char *argv[] )
 	char *pwrds[4]={"root","passbutt","somebody1","8389836296"};
 	int user_index = -1; /* to be assigned an int index  */
 	char entered_pwrd[1024]; /* string entered with the pass command */
+	int cmdStatus;
 
 	/*
 	NOTE: without \n at the end of format string in printf,	UNIX will buffer (not
@@ -198,7 +199,20 @@ int main( int argc, char *argv[] )
 					strcpy(replyMsg,"cd command recieved.");
 					break;
 				case 4: //dele
-					strcpy(replyMsg,"dele command recieved.");
+					if (*argument == '\0') //check it there is an argument
+					{
+						strcpy(replyMsg, "Please retry with a another argument.\n");
+					} else
+					{
+						cmdStatus = unlink(argument);
+						if (cmdStatus == 0)
+						{
+							strcpy(replyMsg, "The file is removed.\n");
+						} else
+						{
+							strcpy(replyMsg, "\"Unable to remove the file.\n");
+						}
+					}            																											
 					break;
 				case 5: //pwd
 					system("pwd > commandOutput");
@@ -217,7 +231,7 @@ int main( int argc, char *argv[] )
 					fclose(file);
 					break;
 				case 7: //stat(or status)
-					strcpy(replyMsg,"stat command recieved.");
+					strcpy(replyMsg,"Command is Good. Transfer mode is ASCII.\n");
 					break;
 				case 8: //help
 					strcpy(replyMsg,"Commands and how to use\n"										
