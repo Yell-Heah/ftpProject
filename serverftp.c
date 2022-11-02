@@ -69,7 +69,7 @@ int main( int argc, char *argv[] )
 	int status;
 	/* Hw2 Addtions */
 	char *users[4]={"root","Jacob","Stiv","Kevin"};
-	char *pwrds[4]={"root","passbutt","5977803331","8389836296"};
+	char *pwrds[4]={"root","passbutt","somebody1","8389836296"};
 	int user_index = -1; /* to be assigned an int index  */
 	char entered_pwrd[1024]; /* string entered with the pass command */
 
@@ -220,7 +220,20 @@ int main( int argc, char *argv[] )
 					strcpy(replyMsg,"stat command recieved.");
 					break;
 				case 8: //help
-					strcpy(replyMsg,"help command recieved.");
+					strcpy(replyMsg,"Commands and how to use\n"										
+					"user  \t  log in as user\n"
+                    "pass  \t log in password\n"
+                    "mkdir \t make directories\n"
+                    "rmdir \t remove directories\n"
+                    "cd   \t change directory\n"
+                    "dele \t remove a file\n"
+                    "pwd  \t print directory\n"
+                    "ls   \t print files\n"
+                    "stat \t print stats\n"
+					"help \t print help\n"
+					"send \t put file from client to server\n"
+					"recv \t get file from server to client\n"
+					);				
 					break;
 				case 9: //send
 					strcpy(replyMsg,"send command recieved.");
