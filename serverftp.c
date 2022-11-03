@@ -245,7 +245,7 @@ int main( int argc, char *argv[] )
 					strcpy(replyMsg, "The file is removed.\n");
 					break;
 				case 5: //stat(or status)
-					strcpy(replyMsg,"stat command recieved.");
+					strcpy(replyMsg,"Command is Good. Transfer mode is ASCII.\n");
 					break;
 				case 6: //help
 					strcpy(replyMsg,"Commands and how to use\n"
