@@ -124,9 +124,16 @@ int main( int argc, char *argv[] )
 		*/
 		tok = strtok(userCmd, " ");
 		strcpy(cmd, tok);
-		while ( tok != NULL ) {
+		// while ( tok != NULL ) {
+		// 	strcpy(argument, tok);
+		// 	tok = strtok(NULL, " ");
+		// }
+		tok = strtok(NULL, " ");
+		if ( tok != NULL ) {
 			strcpy(argument, tok);
 			tok = strtok(NULL, " ");
+		} else {
+			strcpy(argument, "");
 		}
 
 		if(strncmp(cmd, "user", 4) == 0) 											/* command: user */
@@ -161,7 +168,8 @@ int main( int argc, char *argv[] )
 		}
 		else																						/* all other commands */
 		{
-			if(strcmp(entered_pwrd, pwrds[user_index])!=0) // if login is invalid
+			// if(strcmp(entered_pwrd, pwrds[user_index])!=0) // if login is invalid
+			if(0) // turn off password check for testing
 			{
 				strcpy(replyMsg,"Username and password do not match.");
 		    status=sendMessage(ccSocket,replyMsg,strlen(replyMsg) + 1);
@@ -169,16 +177,20 @@ int main( int argc, char *argv[] )
 			}
 			/* only reachable with valid login */
 			int switch_c =	/* converts string input to switch-caseable int */
-				strcmp(cmd, "mkdir")==0 ? 1  :	// (or mkd)
-				strcmp(cmd, "rmdir")==0 ? 2  :	// (or rmd)
-				strcmp(cmd, "cd")==0 		? 3  :	// (or cwd)
-				strcmp(cmd, "dele")==0 	? 4  :
-				strcmp(cmd, "pwd")==0 	? 5  :
-				strcmp(cmd, "ls")==0 		? 6  :
-				strcmp(cmd, "stat")==0 	? 7  :	// (or status)
-				strcmp(cmd, "help")==0 	? 8  :
-				strcmp(cmd, "send")==0 	? 9  :
-				strcmp(cmd, "recv")==0 	? 10 :
+				strcmp(cmd, "mkdir")==0 ? 1 :	// 1 for general arg-needed
+				strcmp(cmd, "mkd")==0 	? 1 :
+				strcmp(cmd, "rmdir")==0 ? 1 :
+				strcmp(cmd, "rmd")==0 	?	1 :
+				strcmp(cmd, "pwd")==0 	? 2 :	// 2 for general arg-optional
+				strcmp(cmd, "ls")==0 		? 2 :
+				strcmp(cmd, "cd")==0 		? 3 :
+				strcmp(cmd, "cwd")==0 	? 3 :
+				strcmp(cmd, "dele")==0 	? 4 :
+				strcmp(cmd, "stat")==0 	? 5 :
+				strcmp(cmd, "status")==0? 5 :
+				strcmp(cmd, "help")==0 	? 6 :
+				strcmp(cmd, "send")==0 	? 7 :
+				strcmp(cmd, "recv")==0 	? 8 :
 				0;															// unreconized command
 			printf("switch_c: %i\n", switch_c);
 			switch(switch_c)
@@ -188,71 +200,74 @@ int main( int argc, char *argv[] )
 				case 0:
 					strcpy(replyMsg,"Unreconized command.");
 					break;
-				case 1:	//mkdir
-					strcpy(replyMsg,"mkdir command recieved.");
-					system(cmd);
-					break;
-				case 2: //rmdir
-					strcpy(replyMsg,"rmdir command recieved.");
+				case 1: // mkdir and rmdir (general arg-needed)
+					strcpy(replyMsg, "COMMAND FAILURE: Missing argument\n");
+					if (strcmp(argument, "")==0)	break;	// if arg, proceed to case 2
+				case 2: //ls, pwd
+					strcpy(replyMsg, "COMMAND FAILURE\n");
+					strcat(cmd, " ");									// space before argument
+					strcat(cmd, argument);						// include argument (if present)
+					strcat(cmd, " > commandOutput");	// add pipe(?) to output file
+					cmdStatus = system(cmd);											// call command to UNIX
+					if (cmdStatus!=0) break;					// catch and report command failure
+					// if (system(cmd)!=0) break;					// catch and report command failure
+					file = fopen("commandOutput","r");	// open output
+					strcpy(replyMsg,"");							 /* clear replyMsg */
+					while (fgets(buffer, 1024, file))  /* read file into replyMsg */
+						strcat(replyMsg, buffer);
+					fclose(file);
 					break;
 				case 3: //cd
-					strcpy(replyMsg,"cd command recieved.");
+					if (strcmp(argument,"")==0)
+						strcpy(argument,"..");	// parent directory
+					status=chdir(argument);
+					strcpy(replyMsg, "DIRECTORY CHANGE FAILURE\n");
+					if (status!=0) break;
+
+					status=system("pwd > commandOutput");
+					strcpy(replyMsg, "DIRECTORY REPORT FAILURE\n");
+					if (status!=0) break;
+
+					file=fopen("commandOutput","r");
+					strcpy(replyMsg,"Directory changed to ");		/* clear replyMsg */
+					while (fgets(buffer, 1024, file))  /* read file into replyMsg */
+						strcat(replyMsg, buffer);
+					fclose(file);
 					break;
 				case 4: //dele
-					if (*argument == '\0') //check it there is an argument
-					{
-						strcpy(replyMsg, "Please retry with a another argument.\n");
-					} else
-					{
-						cmdStatus = unlink(argument);
-						if (cmdStatus == 0)
-						{
-							strcpy(replyMsg, "The file is removed.\n");
-						} else
-						{
-							strcpy(replyMsg, "\"Unable to remove the file.\n");
-						}
-					}            																											
+					strcpy(replyMsg, "Please retry with a another argument.\n");
+					if (*argument=='\0') break; 		//check it there is an argument
+
+					status=unlink(argument); // is this better than rm?
+					strcpy(replyMsg, "\"Unable to remove the file.\n");
+					if (status!=0) break;
+
+					strcpy(replyMsg, "The file is removed.\n");
 					break;
-				case 5: //pwd
-					system("pwd > commandOutput");
-					file = fopen("commandOutput","r");
-					strcpy(replyMsg,"");							 /* clear replyMsg */
-					while (fgets(buffer, 1024, file))  /* read file into replyMsg */
-						strcat(replyMsg, buffer);
-					fclose(file);
-					break;
-				case 6: //ls
-					system("ls > commandOutput");
-					file = fopen("commandOutput","r");
-					strcpy(replyMsg,"");							 /* clear replyMsg */
-					while (fgets(buffer, 1024, file))  /* read file into replyMsg */
-						strcat(replyMsg, buffer);
-					fclose(file);
-					break;
-				case 7: //stat(or status)
+				case 5: //stat(or status)
 					strcpy(replyMsg,"Command is Good. Transfer mode is ASCII.\n");
 					break;
-				case 8: //help
-					strcpy(replyMsg,"Commands and how to use\n"										
+				case 6: //help
+					strcpy(replyMsg,"Commands and how to use\n"
 					"user  \t  log in as user\n"
-                    "pass  \t log in password\n"
-                    "mkdir \t make directories\n"
-                    "rmdir \t remove directories\n"
-                    "cd   \t change directory\n"
-                    "dele \t remove a file\n"
-                    "pwd  \t print directory\n"
-                    "ls   \t print files\n"
-                    "stat \t print stats\n"
+          "pass  \t log in password\n"
+          "mkdir \t make directories\n"
+          "rmdir \t remove directories\n"
+          "cd   \t change directory\n"
+          "dele \t remove a file\n"
+          "pwd  \t print directory\n"
+          "ls   \t print files\n"
+          "stat \t print stats\n"
 					"help \t print help\n"
 					"send \t put file from client to server\n"
 					"recv \t get file from server to client\n"
-					);				
+					);
 					break;
-				case 9: //send
+				case 7: //send
 					strcpy(replyMsg,"send command recieved.");
+					// system("send");
 					break;
-				case 10: //recv
+				case 8: //recv
 					strcpy(replyMsg,"recv command recieved.");
 					break;
 			}
