@@ -28,6 +28,7 @@ commands processed by server ftp.
 
 /* Function prototypes */
 int svcInitServer(int *s);
+int clntConnect(char *serverName, int *s);
 int sendMessage (int s, char *msg, int  msgSize);
 int receiveMessage(int s, char *buffer, int  bufferSize, int *msgSize);
 
@@ -372,6 +373,94 @@ int svcInitServer (
 	return(OK); /*successful return */
 }
 
+/*
+ * clntConnect
+ * copied from clientftp.c
+ *
+ * Function to create a socket, bind local client IP address and port to the socket
+ * and connect to the server
+ *
+ * Parameters
+ * serverName	- IP address of server in dot notation (input)
+ * s		- Control connection socket number (output)
+ *
+ * Return status
+ *	OK			- Successfully connected to the server
+ *	ER_INVALID_HOST_NAME	- Invalid server name
+ *	ER_CREATE_SOCKET_FAILED	- Cannot create socket
+ *	ER_BIND_FAILED		- bind failed
+ *	ER_CONNECT_FAILED	- connect failed
+ */
+
+
+int clntConnect (
+	char *serverName, /* server IP address in dot notation (input) */
+	int *s 		  /* control connection socket number (output) */
+	)
+{
+	int sock;	/* local variable to keep socket number */
+
+	struct sockaddr_in clientAddress;  	/* local client IP address */
+	struct sockaddr_in serverAddress;	/* server IP address */
+	struct hostent	   *serverIPstructure;	/* host entry having server IP address in binary */
+
+
+	/* Get IP address os server in binary from server name (IP in dot natation) */
+	if((serverIPstructure = gethostbyname(serverName)) == NULL)
+	{
+		printf("%s is unknown server. \n", serverName);
+		return (ER_INVALID_HOST_NAME);  /* error return */
+	}
+
+	/* Create control connection socket */
+	if((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	{
+		perror("cannot create socket ");
+		return (ER_CREATE_SOCKET_FAILED);	/* error return */
+	}
+
+	/* initialize client address structure memory to zero */
+	memset((char *) &clientAddress, 0, sizeof(clientAddress));
+
+	/* Set local client IP address, and port in the address structure */
+	clientAddress.sin_family = AF_INET;	/* Internet protocol family */
+	clientAddress.sin_addr.s_addr = htonl(INADDR_ANY);  /* INADDR_ANY is 0, which means */
+						 /* let the system fill client IP address */
+	clientAddress.sin_port = 0;  /* With port set to 0, system will allocate a free port */
+			  /* from 1024 to (64K -1) */
+
+	/* Associate the socket with local client IP address and port */
+	if(bind(sock,(struct sockaddr *)&clientAddress,sizeof(clientAddress))<0)
+	{
+		perror("cannot bind");
+		close(sock);
+		return(ER_BIND_FAILED);	/* bind failed */
+	}
+
+
+	/* Initialize serverAddress memory to 0 */
+	memset((char *) &serverAddress, 0, sizeof(serverAddress));
+
+	/* Set ftp server ftp address in serverAddress */
+	serverAddress.sin_family = AF_INET;
+	memcpy((char *) &serverAddress.sin_addr, serverIPstructure->h_addr,
+			serverIPstructure->h_length);
+	serverAddress.sin_port = htons(SERVER_FTP_PORT);
+
+	/* Connect to the server */
+	if (connect(sock, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0)
+	{
+		perror("Cannot connect to server ");
+		close (sock); 	/* close the control connection socket */
+		return(ER_CONNECT_FAILED);  	/* error return */
+	}
+
+
+	/* Store listen socket number to be returned in output parameter 's' */
+	*s=sock;
+
+	return(OK); /* successful return */
+}  // end of clntConnect() */
 
 /*
  * sendMessage

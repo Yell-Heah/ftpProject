@@ -25,14 +25,22 @@ NOTE: Starting homework #2, add more comments here describing the overall functi
 
 /* Function prototypes */
 int clntConnect(char	*serverName, int *s);
+int svcInitServer(int *s);
 int sendMessage (int s, char *msg, int  msgSize);
 int receiveMessage(int s, char *buffer, int  bufferSize, int *msgSize);
 
 /* List of all global variables */
 char userCmd[1024];	/* user typed ftp command line read from keyboard */
+char userCmd[1024]; /*Used for temporary String manipulation*/
 char cmd[1024];		/* ftp command extracted from userCmd */
 char argument[1024];	/* argument extracted from userCmd */
 char replyMsg[1024];    /* buffer to receive reply message from server */
+
+char ftpData[100]; /*Buffer to send/receive file data to/from client*/
+int ftpBytes = 0; /*Used to count the total number of bytes transferred duting ftp*/
+int fileBytesRead = 0; /*The number of bytes read by fread*/
+int bytesReceived = 0; /*The number of bytes received in a single ftp message.*/
+File *filePtr; /*Used to point to the temporary file that logged commad input*/
 
 
 /*
@@ -58,6 +66,8 @@ int main(	int argc,	char *argv[] )
 {
 	/* List of local varibale */
 
+	int dcSocket; /*Control connection socket to be used in all client communication*/
+	int listensocket; /*Used to listen for connection request to dcSocket*/
 	int ccSocket;	/* Control connection socket - to be used in all client communication */
 	int msgSize;	/* size of the reply message received from the server */
 	int status = OK;
@@ -79,6 +89,19 @@ int main(	int argc,	char *argv[] )
 		return (status);
 	}
 
+	/*
+	*Listen for a data connection
+	*Copied and edited from serverftp.c
+	*/
+	printf("Initialize client data connection to server (listen).\n"); /*changed text*/
+
+	status = svcInitServer(&listensocket);
+	if(status != 0)
+	{
+		printf("Exiting client ftp due to svcInitServer returned error. \n");
+		exit(status);
+	}
+
 
 	/*
 	 * Read an ftp command with argument, if any, in one line from user into userCmd.
@@ -91,23 +114,32 @@ int main(	int argc,	char *argv[] )
 	do
 	{
 		printf("my ftp> ");
-		/* to read the command from the user. Use gets or readln function */
+
+		/*Re-initialize first elemt of cmd and argument*/
+		cmd = NULL;
+		argument = NULL;
+		
 		// gets(userCmd);  /* TODONE: Jacob */
-		fgets(userCmd, 1024, stdin);  /* TODONE: Jacob */
-		userCmd[strlen(userCmd)-1] = '\0';
+		gets(userCmd);  /* TODONE: Jacob */
+
 
     /*
 		Separate command and argument from userCmd.
 		Modify in Homework 2. Use strtok function
 		*/
-    strcpy(cmd, userCmd);
-    strcpy(argument, "");
+    	strcpy(cmd, userCmd);
+		cmd = strtok(userCmdCopy, " ");
+		argument = strtok(NULL, " ");
 
-		/* send the userCmd to the server */
-		status = sendMessage(ccSocket, userCmd, strlen(userCmd)+1);
+		/* send the userCmd to the server, unless cmd is 'send' or 'recv'*/
+		if(strcmp(cmd, "send") != 0 && strcmp(cmd, "recv") !=0)
+		{
+			print("Sending message on ccSocket.\n");
+			status = sendMessage(ccSocket, userCmd, strlen(userCmd) + 1);
+		}
 		if(status != OK)
 		{
-	    break;
+	    	break;
 		}
 
 		/* Receive reply message from the the server */
@@ -116,6 +148,137 @@ int main(	int argc,	char *argv[] )
 		{
 	    break;
 		}
+		/*initiate the 'send procedure*/
+		if(strcmp(cmd, "send") == 0)
+		{
+			if(argument[0] == NULL || strcmp(argument, "") == 0)
+			{
+				printf("File argument not specified. Data connection will not be opened. No command send.\n");
+			}
+			else
+			{
+				filePtr = NULL;
+				filePtr = fopen(argument, "r");
+				/*This make sure the file is readable*/
+				if(filePtr == NULL)
+				{
+					printf("Could not open specified file. Data connection will not be opened. No command send.\n");
+				}
+
+				/*File is readable, send command to sever & establish data connection*/
+				else
+				{
+					printf("Send: sending message on ccSocket\n");
+					status = sendMessage(ccSocket, userCmd, strlen(userCmd) + 1); //Send command on command connection
+					ftpBytes = 0; //initialize byte count
+					printf("ftp client is waiting to accept sata connection.\n");
+
+					//wait unitl connection request come from server ftp
+					dcSocket = accept(listensocket, NULL, NULL);
+					printf("Came out of dcSocket accept() function, \n");
+
+					if(dcSocket < 0)
+					{
+						perror("Cannot accept data connection: Closing listen socket.\n");
+						close(dcSocket); //close listen socket
+					}
+					//Data connection successful, begin file transfer
+					else
+					{
+						printf("Data connection established with server. sending file. \n");
+
+						do 
+						{
+							printf("Top of send do loop status: %d\n", status); 
+							fileBytesRead = 0;
+							fileBytesRead = fread(ftpData, 1, 100 filePtr); //Read error returns numbers of bytes read
+							printf("Read packet from file complete.\n");
+							status = sendMessage(dcSocket, ftpData, fileBytesRead);//Do not alter file data 
+							printf("Packet sent. sendMessage status: %d\n", status);
+							ftpBytes = ftpBytes + fileBytesRead;
+							printf("Bottom of do loop. \n");
+						}while(!feof(filePtr) && status  == ok);//End send loop
+
+						if(status != ok)
+						{
+							perror("sendMessage returned not ok: closing data connection. \n");
+						}
+						else
+						{
+							printf("\nReached EOF. %d bytes send. closing data connection. \n\n", ftpBytes);
+						}
+						fclose(filePtr);
+						close(dcSocket);
+					}
+					printf("Send receiving message on ccSocket.\n");
+					status = receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &msgSize);//Message sent to sever, Get reply
+
+				}
+			}
+		}
+
+		/*Initiate the 'recv' procedure*/
+		else if (strcmp(cmd, "recv") == 0)
+		{
+			/* Ensure argument is specified and specifed file can be written to before sending 'recv' command */
+			filePtr = NULL;
+			filePtr = fopen(argument, "w");
+			/*This makes sure the specified file is writeable*/
+			if(filePtr == NULL)
+			{
+				perror("Could not open/create specified file.\n");
+			}
+			/*File is writeable, send 'recv' command and listen for sata connection request from server*/
+			else
+			{
+				printf("Sending recv command to server.\n");
+				status = sendMessage(ccSocket, userCmd, strlen(userCmd) + 1);
+				if(status != OK)
+				{
+					break;
+				}
+				printf("ftp client is waiting to accept data connection.\n");
+				/*waiting until connection request comes from server ftp*/
+				dcSocket = accept(listensocket, NULL, NULL);
+				printf("Came out of dcSocket accept() function.\n");
+				if(dcSocket < 0)
+				{
+					/*Data connection failed, close the specified file that was to be written and the data connection.*/
+					perror("Cannot accept data connection: closing data connectio.\n");
+					fclose(filePtr);
+					close(dcSocket);
+				}
+				else
+				{
+					/*Data connection succesful, receive data from server and write to the specified file.*/
+					printf("Data connection establised with server. Waiting to receive file.\n");
+					ftpBytes = 0; //Initialize byte count
+					do
+					{
+						bytesReceived = 0;
+						status = receiveMessage(dcSocket, ftpData, sizeof(ftpData), &bytesReceived);
+						fwrite(ftpData, 1, bytesReceived, filePtr); //success or fail, fwrite returns >= 0, this info is useless.
+						ftpBytes = ftpBytes + bytesReceived;
+					} while (bytesReceived > 0 && status == OK);
+					fclose(filePtr);
+					printf("Received %d bytes. closing data connection.\n\n", ftpBytes);
+					close(dcSocket);
+				}
+				status = receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &msgSize);
+			}
+		}
+
+		/*Receive reply message from the server if expected (send is not sent if read error occurs client-side.)*/
+		if(strcmp(cmd, "send") != 0 && strcmp(cmd, "recv") != 0)
+		{
+			printf("Receiving message on ccSocket.\n");
+			status = receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &msgSize);
+		}
+		if(status != OK)
+		{
+			break;
+		}
+		printf("Bottom of main do loop.\n")
 	}
 	while (strncmp(cmd, "quit", 4) != 0);
 	printf("Closing control connection \n");
@@ -213,7 +376,81 @@ int clntConnect (
 	return(OK); /* successful return */
 }  // end of clntConnect() */
 
+/*
+ * svcInitServer
+ *
+ * copied and edited from serverftp.c
+ *
+ * Function to create a socket and to listen for connection request from client
+ *    using the created listen socket.
+ *
+ * Parameters
+ * s		- Socket to listen for connection request (output)
+ *
+ * Return status
+ *	OK			- Successfully created listen socket and listening
+ *	ER_CREATE_SOCKET_FAILED	- socket creation failed
+ */
 
+int svcInitServer (
+	int *s 		/*Listen socket number returned from this function */
+	)
+{
+	int sock;
+	struct sockaddr_in svcAddr;
+	int qlen;
+
+	/*create a socket endpoint */
+	if( (sock=socket(AF_INET, SOCK_STREAM,0)) < 0)
+	{
+		perror("cannot create socket");
+		return(ER_CREATE_SOCKET_FAILED);
+	}
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)); /* added by jacob to hopefully solve "address already in use" error. update: doesnt work. */
+
+	/*initialize memory of svcAddr structure to zero. */
+	memset((char *)&svcAddr,0, sizeof(svcAddr));
+
+	/* initialize svcAddr to have server IP address and server listen port#. */
+	svcAddr.sin_family = AF_INET;
+	svcAddr.sin_addr.s_addr=htonl(INADDR_ANY);  /* server IP address */
+	svcAddr.sin_port=htons(SERVER_FTP_PORT);    /* server listen port # */
+
+	/* bind (associate) the listen socket number with server IP and port#.
+	 * bind is a socket interface function
+	 */
+	if(bind(sock,(struct sockaddr *)&svcAddr,sizeof(svcAddr))<0)
+	{
+		perror("cannot bind");
+		close(sock);
+		return(ER_BIND_FAILED);	/* bind failed */
+	}
+
+	/*
+	 * Set listen queue length to 1 outstanding connection request.
+	 * This allows 1 outstanding connect request from client to wait
+	 * while processing current connection request, which takes time.
+	 * It prevents connection request to fail and client to think server is down
+	 * when in fact server is running and busy processing connection request.
+	 */
+	qlen=1;
+
+	/*
+	 * Listen for connection request to come from client ftp.
+	 * This is a non-blocking socket interface function call,
+	 * meaning, server ftp execution does not block by the 'listen' funcgtion call.
+	 * Call returns right away so that server can do whatever it wants.
+	 * The TCP transport layer will continuously listen for request and
+	 * accept it on behalf of server ftp when the connection requests comes.
+	 */
+
+	listen(sock,qlen);  /* socket interface function call */
+
+	/* Store listen socket number to be returned in output parameter 's' */
+	*s=sock;
+
+	return(OK); /*successful return */
+}
 
 /*
  * sendMessage
