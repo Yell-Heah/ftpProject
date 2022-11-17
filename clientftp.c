@@ -9,9 +9,11 @@ NOTE: Starting homework #2, add more comments here describing the overall functi
 #include <sys/socket.h>
 #include <netdb.h>
 #include <string.h>
-#include <stdio.h> /* TODONEJacob: avoids implicit dec. error for printf */
+#include <stdio.h>
+#include <stdlib.h> /* TODONEJacob: avoids implicit dec. error for printf */
 
 #define SERVER_FTP_PORT 6798
+#define DATA_CONNECTION_PORT 2001
 
 /* Error and OK codes */
 #define OK 0
@@ -31,16 +33,16 @@ int receiveMessage(int s, char *buffer, int  bufferSize, int *msgSize);
 
 /* List of all global variables */
 char userCmd[1024];	/* user typed ftp command line read from keyboard */
-char userCmd[1024]; /*Used for temporary String manipulation*/
-char cmd[1024];		/* ftp command extracted from userCmd */
-char argument[1024];	/* argument extracted from userCmd */
+char userCmdCopy[1024]; /*Used for temporary String manipulation*/
+char *cmd;		/* ftp command extracted from userCmd */
+char *argument;	/* argument extracted from userCmd */
 char replyMsg[1024];    /* buffer to receive reply message from server */
 
 char ftpData[100]; /*Buffer to send/receive file data to/from client*/
 int ftpBytes = 0; /*Used to count the total number of bytes transferred duting ftp*/
 int fileBytesRead = 0; /*The number of bytes read by fread*/
 int bytesReceived = 0; /*The number of bytes received in a single ftp message.*/
-File *filePtr; /*Used to point to the temporary file that logged commad input*/
+FILE *filePtr; /*Used to point to the temporary file that logged commad input*/
 
 
 /*
@@ -62,7 +64,7 @@ Return status
 OK	- Successful execution until QUIT command from client
 N	- Failed status, value of N depends on the function called or cmd processed
  */
-int main(	int argc,	char *argv[] )
+int main(int argc,char *argv[])
 {
 	/* List of local varibale */
 
@@ -86,7 +88,7 @@ int main(	int argc,	char *argv[] )
 	if(status != 0)
 	{
 		printf("Connection to server failed, exiting main. \n");
-		return (status);
+		return(status);
 	}
 
 	/*
@@ -120,21 +122,21 @@ int main(	int argc,	char *argv[] )
 		argument = NULL;
 		
 		// gets(userCmd);  /* TODONE: Jacob */
-		gets(userCmd);  /* TODONE: Jacob */
+		fgets(userCmd, 1024, stdin);  /* TODONE: Jacob */
 
 
     /*
 		Separate command and argument from userCmd.
 		Modify in Homework 2. Use strtok function
 		*/
-    	strcpy(cmd, userCmd);
+    	strcpy(userCmdCopy, userCmd);
 		cmd = strtok(userCmdCopy, " ");
 		argument = strtok(NULL, " ");
 
 		/* send the userCmd to the server, unless cmd is 'send' or 'recv'*/
 		if(strcmp(cmd, "send") != 0 && strcmp(cmd, "recv") !=0)
 		{
-			print("Sending message on ccSocket.\n");
+			printf("Sending message on ccSocket.\n");
 			status = sendMessage(ccSocket, userCmd, strlen(userCmd) + 1);
 		}
 		if(status != OK)
@@ -191,15 +193,15 @@ int main(	int argc,	char *argv[] )
 						{
 							printf("Top of send do loop status: %d\n", status); 
 							fileBytesRead = 0;
-							fileBytesRead = fread(ftpData, 1, 100 filePtr); //Read error returns numbers of bytes read
+							fileBytesRead = fread(ftpData, 1, 100, filePtr); //Read error returns numbers of bytes read
 							printf("Read packet from file complete.\n");
 							status = sendMessage(dcSocket, ftpData, fileBytesRead);//Do not alter file data 
 							printf("Packet sent. sendMessage status: %d\n", status);
 							ftpBytes = ftpBytes + fileBytesRead;
 							printf("Bottom of do loop. \n");
-						}while(!feof(filePtr) && status  == ok);//End send loop
+						}while(!feof(filePtr) && status  == OK);//End send loop
 
-						if(status != ok)
+						if(status != OK)
 						{
 							perror("sendMessage returned not ok: closing data connection. \n");
 						}
@@ -278,12 +280,18 @@ int main(	int argc,	char *argv[] )
 		{
 			break;
 		}
-		printf("Bottom of main do loop.\n")
+		printf("Bottom of main do loop.\n");
 	}
 	while (strncmp(cmd, "quit", 4) != 0);
+
+	printf("Closing data connection \n");
+	close(listensocket);  /* close control connection socket */
+
 	printf("Closing control connection \n");
 	close(ccSocket);  /* close control connection socket */
+
 	printf("Exiting client main \n");
+
 	return (status);
 }  /* end main() */
 
