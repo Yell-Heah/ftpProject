@@ -15,6 +15,7 @@ commands processed by server ftp.
 #include <stdlib.h>  /* TODONEJacob: avoids implicit dec error for exit */
 
 #define SERVER_FTP_PORT 6798
+#define DATA_CONNECTION_PORT 2001
 
 /* Error and OK codes */
 #define OK 0
@@ -34,12 +35,29 @@ int receiveMessage(int s, char *buffer, int  bufferSize, int *msgSize);
 
 
 /* List of all global variables */
-char userCmd[1024];	/* user typed ftp command line received from client */
-char cmd[1024];		/* ftp command (without argument) extracted from userCmd */
-char argument[1024];	/* argument (without ftp command) extracted from userCmd */
+char userCmd[1024];/* user typed ftp command line received from client */
+char userCmdCopy[1024];
+char chgCmd[1024];
+char *cmd;		/* ftp command (without argument) extracted from userCmd */
+char *argument;	/* argument (without ftp command) extracted from userCmd */
 char replyMsg[1024];       /* buffer to send reply message to client */
+char ftpData[100];
+int fileBytesRead = 0;
+int ftpBytes = 0;
+int bytesReceived = 0 ;
 char *tok;
 
+int isLoggedIN = -1; //-1 is default, 0 if the is not logged in, 1 otherwise
+int userIndex = -1;  //This identifies the current user
+
+FILE *filePrt;
+int bytesRead = -1;
+char fileData[1024];
+
+//login codes
+#define LOGGEN_IN 1
+#define LOGGEN_OUT 0
+#define NO_USER -1
 
 /*
 main
@@ -68,6 +86,7 @@ int main( int argc, char *argv[] )
 	int listenSocket; /* listening server ftp socket for client connect request */
 	int ccSocket;     /* Control connection socket - to be used in all client communication */
 	int status;
+	int dcSocket; 		//Data connection sockert to be used in all server communication
 	/* Hw2 Addtions */
 	char *users[4]={"root","Jacob","Stiv","Kevin"};
 	char *pwrds[4]={"root","passbutt","somebody1","8389836296"};
@@ -265,12 +284,116 @@ int main( int argc, char *argv[] )
 					);
 					break;
 				case 7: //send
-					strcpy(replyMsg,"send command recieved.");
-					// system("send");
-					break;
+					if(strcmp(cmd, "send") == 0)
+					{
+						printf("Calling clntConnect to connect to the client.\n");
+						status = clntConnect("10.3.200.17", &dcSocket); //offcampus IP: 134.241.37.12
+						if(status != 0)
+						{
+							//Data connection faile this will tell the client and it close the socket
+							strcpy(replyMsg, "425 'send' coould not open data connection. closing data connection socket.\n");
+						} 	
+						else
+						{
+							printf("Data connection established to client.\n");
+							if(argument[0] == NULL || strcmp(argument, "") == 0)
+							{
+								strcpy(replyMsg, "501 invalid syntax. Use: \"Send <filename>\". Closing data connection.\n");
+							}
+							else if(isLoggedIN == LOGGEN_IN)
+							{
+								filePrt = NULL;
+								filePrt = fopen(argument, "w");
+								if(filePrt == NULL)
+								{
+									strcpy(replyMsg, "550 The file \"");
+									strcat(replyMsg, argument);
+									strcat(replyMsg, "\" could not be opened/created. Closing data connection.\n");
+								}
+								else
+								{
+									ftpBytes = 0; //initialize by count
+									printf("Waiting for file transmission from client.\n");
+									do 
+									{
+										bytesReceived = 0;
+										status = receiveMessage(dcSocket, ftpData, sizeof(ftpData), &bytesReceived);
+										fwrite(ftpData, 1, bytesReceived, filePrt); //sucess or fail fwrite returns >= 0. this info is uselss
+										ftpBytes = ftpBytes + bytesReceived;
+									}while(bytesReceived > 0 && status == OK);
+									
+									sprintf(replyMsg, "226 Received %d", ftpBytes);
+									strcat(replyMsg, "bytes. closing data connection.\n");
+								}
+								fclose(filePrt); //close file when it has been received or not
+							}
+							else
+							{
+								strcpy(replyMsg, "530 Not logged in. Closing data connection.\n");
+							}
+						}
+						printf("Data connection closed.\n");
+						close(dcSocket); /*close the data connection if an error occur or not*/
+					}
 				case 8: //recv
-					strcpy(replyMsg,"recv command recieved.");
-					break;
+					if(strcmp(cmd, "recv") == 0)
+					{
+						printf("Calling clntConnect to connect to the client.\n");
+						status = clntConnect("10.3.200.17", &dcSocket); //offcampus IP: 134.241.37.12
+						if(status != 0)
+						{
+							strcpy(replyMsg, "425 'revc' could not establish data connection. Closing connection");
+						}
+						else 
+						{
+							printf("Data Connection to client succesful.\n");
+							if(argument[0] == NULL || strcmp(argument, "") == 0)
+							{
+								strcpy(replyMsg, "501 invalid syntax. Use: \"Send <filename>\". Closing data connection.\n");
+							}
+							else if(isLoggedIN == LOGGEN_IN)
+							{
+								filePrt = NULL;
+								filePrt = fopen(argument, "r");
+								if(filePrt == NULL)
+								{
+									strcpy(replyMsg, "550 the file \"");
+									strcat(replyMsg, argument);
+									strcat(replyMsg, "\" could not be opened. Closing data connection.");
+								}
+								else 
+								{
+									ftpBytes = 0;
+									printf("Sending file.\n");
+									do 
+									{
+										fileBytesRead = 0;
+										fileBytesRead = fread(ftpData, 1, 100, filePrt);
+										status = sendMessage(dcSocket, ftpData, fileBytesRead);
+										ftpBytes = ftpBytes + fileBytesRead;
+									}while(!feof(filePrt) && status == OK);
+
+									printf(replyMsg, "226 send %d", ftpBytes);
+									strcat(replyMsg, "bytes, closing data connection");
+								}
+								fclose(filePrt);
+							}
+							else
+							{
+								strcpy(replyMsg, "bytes. Closing data connection");
+							}
+						}
+						close(dcSocket);
+					}
+					else if(strcmp(cmd, "quit") == 0)
+					{
+						strcpy(replyMsg, "221 Service closing data and control connection.\n");
+
+					}else
+						{
+							strcpy(replyMsg, "502 command not implemented. Use \"help\" for a list of valid commands.\n");
+						}
+					
 			}
 			/* Now has an appropriate reply msg in HW2 */
 		}
@@ -282,19 +405,23 @@ int main( int argc, char *argv[] )
 		include NULL character in the reply string, as strlen does not count NULL
 		character. */
     if(status < 0)
-    {
+    	{
 			break;  /* exit while loop */
-    }
+    	}
 	}
-	// while(strncmp(cmd, "quit", 4) != 0);
-	// printf("Closing control connection socket.\n");
-	// close (ccSocket);  /* Close client control connection socket */
-	// // shutdown (ccSocket);
-	// printf("Closing listen socket.\n");
-	// close(listenSocket);  /*close listen socket */
-	// // shutdown(listenSocket);
-	// printf("Existing from server ftp main \n");
-	// return (status);
+	while(strncmp(cmd, "quit", 4) != 0);
+
+	printf("Closing control connection socket.\n");
+	close (ccSocket);  /* Close client control connection socket */
+
+	printf("Closing data connection socket.\n");
+	close (dcSocket);  /* Close client control connection socket */
+
+	printf("Closing listen socket.\n");
+	close(listenSocket);  /*close listen socket */
+
+	printf("Existing from server ftp main \n");
+	return (status);
 } /* end main() */
 
 
