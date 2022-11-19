@@ -297,7 +297,7 @@ int main(int argc,char *argv[])
 		else // everything other than send and recv
 		{
 			// send the userCmd to the server
-			printf("Sending message on ccSocket.\n");
+			// printf("Sending message on ccSocket.\n");
 			status = sendMessage(ccSocket, userCmd, strlen(userCmd) + 1);
 			if (status!=0) break;
 
@@ -507,9 +507,9 @@ int sendMessage(
 	/* Print the message to be sent byte by byte as character */
 	for(i=0;i<msgSize;i++)
 	{
-		printf("%c",msg[i]);
+		// printf("%c",msg[i]);
 	}
-	printf("\n");
+	// printf("\n");
 
 	if((send(s,msg,msgSize,0)) < 0) /* socket interface call to transmit */
 	{

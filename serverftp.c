@@ -91,6 +91,7 @@ int main( int argc, char *argv[] )
 	char entered_pwrd[1024]; /* string entered with the pass command */
 	int cmdStatus;
 
+	strcpy(entered_pwrd,"");
 	/*
 	NOTE: without \n at the end of format string in printf,	UNIX will buffer (not
 	flush) output to display and you will not see it on monitor.
@@ -139,6 +140,7 @@ int main( int argc, char *argv[] )
 		See Homework#2 for list of ftp commands to implement.
 		Separate command and argument from userCmd.
 		*/
+		strcpy(argument, "");
 		printf("userCmd: %s\n", userCmd);
 		tok = strtok(userCmd, " ");
 		strcpy(cmd, tok);
@@ -155,7 +157,6 @@ int main( int argc, char *argv[] )
 		}
 		printf("cmd: %s\n", cmd);
 		printf("argument: %s\n", argument);
-
 		if(strncmp(cmd, "user", 4)==0) 											/* command: user */
 		{
 			// int users_size = sizeof users / sizeof users[0];
@@ -188,8 +189,7 @@ int main( int argc, char *argv[] )
 		}
 		else																						/* all other commands */
 		{
-			if(0) // turn off password check for testing
-			// if(strcmp(entered_pwrd, pwrds[user_index])!=0) // if login is invalid
+			if(user_index < 0 || strcmp(entered_pwrd, pwrds[user_index])!=0) // if login is invalid
 			{
 				strcpy(replyMsg,"Username and password do not match.\n");
 		    status=sendMessage(ccSocket,replyMsg,strlen(replyMsg) + 1);
